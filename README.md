@@ -1,151 +1,164 @@
-[![CLA assistant](https://cla-assistant.io/readme/badge/jrouwe/JoltPhysics)](https://cla-assistant.io/jrouwe/JoltPhysics)
-[![Build Status](https://github.com/jrouwe/JoltPhysics/actions/workflows/build.yml/badge.svg)](https://github.com/jrouwe/JoltPhysics/actions/)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=jrouwe_JoltPhysics&metric=alert_status)](https://sonarcloud.io/dashboard?id=jrouwe_JoltPhysics)
-[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=jrouwe_JoltPhysics&metric=bugs)](https://sonarcloud.io/dashboard?id=jrouwe_JoltPhysics)
-[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=jrouwe_JoltPhysics&metric=code_smells)](https://sonarcloud.io/dashboard?id=jrouwe_JoltPhysics)
-
-# Jolt Physics
-
-A multi core friendly rigid body physics and collision detection library suitable for games and VR applications, used by Horizon Forbidden West.
-
-[![Horizon Forbidden West Cover Art](https://jrouwe.nl/jolt/Horizon_Forbidden_West.png)](https://www.playstation.com/en-us/games/horizon-forbidden-west/)
-
-|[![Ragdoll Pile](https://img.youtube.com/vi/pwyCW0yNKMA/hqdefault.jpg)](https://www.youtube.com/watch?v=pwyCW0yNKMA)|
-|:-|
-|*A YouTube video showing a ragdoll pile simulated with Jolt Physics.*|
-
-For more demos and [videos](https://www.youtube.com/watch?v=pwyCW0yNKMA&list=PLYXVwtOr1CBxbA50jVg2dKUQvHW_5OOom) go to the [Samples](Docs/Samples.md) section.
-
-## Design Considerations
-
-So why create yet another physics engine? First of all, this has been a personal learning project and secondly I wanted to address some issues that I had with existing physics engines:
-
-* In games we usually need to do many more things than to simulate the physics world and we need to do this across multiple threads. We therefore place a lot of emphasis on concurrently accessing the physics simulation data outside of the main physics simulation update:
-	* Sections of the world can be loaded / unloaded in the background. A batch of physics bodies can be prepared on a background thread without locking or affecting the physics simulation and then inserted into the world all at once with a minimal impact on performance.
-	* Collision queries can run in parallel with other operations like insertion / removal of bodies. The query code is guaranteed to see a body in a consistent state, but when a body is changed during a collision query there is no guarantee if the change is visible to the query or not. If a thread modifies the position of a body and then does a collision query, it will immediately see the updated state (this is often a problem when working with a read version and a write version of the world).
-	* It is also possible to run collision queries in parallel to the main physics simulation by doing the broad phase query before the simulation step. This way, long running processes (like navigation mesh generation) can be spread out across multiple frames while still running the physics simulation every frame.
-* One of the main sources of performance problems we found was waking up too many bodies while loading / unloading content. Therefore, bodies will not automatically wake up when created and neighboring bodies will not be woken up when bodies are removed. This can be triggered manually if desired.
-* The simulation runs deterministically, so you could replicate a simulation to a remote client by merely replicating the inputs to the simulation. Read the [Deterministic Simulation](https://jrouwe.github.io/JoltPhysics/#deterministic-simulation) section to understand the limits of this.
-* The simulation of this physics engine tries to simulate behavior of rigid bodies in the real world but makes approximations in the simulation so should mainly be used for games or VR simulations.
-
-## Features
-
-* Simulation of rigid bodies of various shapes using continuous collision detection:
-	* Sphere.
-	* Box.
-	* Capsule.
-	* Tapered-capsule.
-	* Cylinder.
-	* Convex hull.
-	* Compound.
-	* Mesh (triangle).
-	* Terrain (height field).
-* Simulation of constraints between bodies:
-	* Fixed.
-	* Point.
-	* Distance (including springs).
-	* Hinge.
-	* Slider (also called prismatic).
-	* Cone.
-	* Rack and Pinion.
-	* Gear.
-	* Pulley.
-	* Smooth spline paths.
-	* Swing-twist (for humanoid shoulders).
-	* 6 DOF.
-* Motors to drive the constraints.
-* Collision detection:
-	* Casting rays.
-	* Testing shapes vs shapes.
-	* Casting a shape vs another shape.
-	* Broadphase only tests for quickly determining which objects may intersect.
-* Sensors (trigger volumes).
-* Animated ragdolls:
-	* Hard keying (kinematic only rigid bodies).
-	* Soft keying (setting velocities on dynamic rigid bodies).
-	* Driving constraint motors to an animated pose.
-	* Mapping a high detail (animation) skeleton onto a low detail (ragdoll) skeleton and vice versa.
-* Game character simulation (capsule)
-	* Rigid body character. Moves during the physics simulation. Cheapest option and most accurate collision response between character and dynamic bodies.
-	* Virtual character. Does not have a rigid body in the world but simulates one using collision checks. Updated outside of the physics update for more control. Less accurate interaction with dynamic bodies.
-* Vehicles
-	* Wheeled vehicles.
-	* Tracked vehicles.
-	* Motorcycles.
-* Soft body simulation (e.g. a soft ball or piece of cloth).
-* Water buoyancy calculations.
-* An optional double precision mode that allows large worlds.
-
-## Supported Platforms
-
-* Windows (VS2019, VS2022) x86/x64/ARM32/ARM64 (Desktop/UWP)
-* Linux (tested on Ubuntu 22.04) x64/ARM64
-* FreeBSD
-* Android (tested on Android 14) x86/x64/ARM32/ARM64
-* Platform Blue (a popular game console) x64
-* macOS (tested on Monterey) x64/ARM64
-* iOS (tested on iOS 15) x64/ARM64
-* WebAssembly, see [this](https://github.com/jrouwe/JoltPhysics.js) separate project.
-
-## Required CPU features
-
-* On x86 the minimal requirements are SSE2 but the library can be compiled using SSE4.1, SSE4.2, AVX, AVX2, or AVX512.
-* On ARM64 the library by default compiles with NEON and FP16, on ARM32 it can be compiled without any special CPU instructions.
-
-## Documentation
-
-To learn more about Jolt go to the [Architecture and API documentation](https://jrouwe.github.io/JoltPhysics/).
-
-To get started, look at the [HelloWorld](HelloWorld/HelloWorld.cpp) example. A [HelloWorld example using CMake FetchContent](https://github.com/jrouwe/JoltPhysicsHelloWorld) is also available to show how you can integrate Jolt Physics in a CMake project.
-
-Some algorithms used by Jolt are described in detail in my GDC 2022 talk Architecting Jolt Physics for 'Horizon Forbidden West' ([slides](https://gdcvault.com/play/1027560/Architecting-Jolt-Physics-for-Horizon), [slides with speaker notes](https://jrouwe.nl/architectingjolt/ArchitectingJoltPhysics_Rouwe_Jorrit_Notes.pdf), [video](https://gdcvault.com/play/1027891/Architecting-Jolt-Physics-for-Horizon)).
-
-## Compiling
-
-* The library has been tested to compile with Cl (Visual Studio 2019-2022), Clang 10+ and GCC 9+.
-* It uses C++17 and only depends on the standard template library.
-* It doesn't make use of compiler generated RTTI or exceptions.
-* If you want to run on Platform Blue you'll need to provide your own build environment and PlatformBlue.h file due to NDA requirements (see Core.h for further info).
-
-For build instructions go to the [Build](Build/README.md) section. When upgrading from an older version of the library go to the [Release Notes](Docs/ReleaseNotes.md) or [API Changes](Docs/APIChanges.md) sections.
-
-## Performance
-
-If you're interested in how Jolt scales with multiple CPUs and compares to other physics engines, take a look at [this document](https://jrouwe.nl/jolt/JoltPhysicsMulticoreScaling.pdf).
-
-## Folder Structure
-
-* Assets - This folder contains assets used by the TestFramework, Samples and JoltViewer.
-* Build - Contains everything needed to build the library, see the [Build](Build/README.md) section.
-* Docs - Contains documentation for the library.
-* HelloWorld - A simple application demonstrating how to use the Jolt Physics library.
-* Jolt - All source code for the library is in this folder.
-* JoltViewer - It is possible to record the output of the physics engine using the DebugRendererRecorder class (a .jor file), this folder contains the source code to an application that can visualize a recording. This is useful for e.g. visualizing the output of the PerformanceTest from different platforms. Currently available on Windows only.
-* PerformanceTest - Contains a simple application that runs a [performance test](Docs/PerformanceTest.md) and collects timing information.
-* Samples - This contains the sample application, see the [Samples](Docs/Samples.md) section. Currently available on Windows only.
-* TestFramework - A rendering framework to visualize the results of the physics engine. Used by Samples and JoltViewer. Currently available on Windows only.
-* UnitTests - A set of unit tests to validate the behavior of the physics engine.
-* WebIncludes - A number of JavaScript resources used by the internal profiling framework of the physics engine.
-
-## Bindings For Other Languages
-
-* C [here](https://github.com/michal-z/zig-gamedev/tree/main/libs/zphysics/libs) and [here](https://github.com/amerkoleci/JoltPhysicsSharp/tree/main/src/joltc)
-* [C#](https://github.com/amerkoleci/JoltPhysicsSharp)
-* [Java](https://github.com/aecsocket/jolt-java)
-* [JavaScript](https://github.com/jrouwe/JoltPhysics.js)
-* [Zig](https://github.com/michal-z/zig-gamedev/tree/main/libs/zphysics)
-
-## Integrations in Other Engines
-
-* [Godot](https://github.com/godot-jolt/godot-jolt)
-* [Source Engine](https://github.com/Joshua-Ashton/VPhysics-Jolt)
-
-See [a list of projects that use Jolt Physics here](Docs/ProjectsUsingJolt.md).
-
-## License
-
-The project is distributed under the [MIT license](LICENSE).
-
-## Contributions
-
-All contributions are welcome! If you intend to make larger changes, please discuss first in the GitHub Discussion section. For non-trivial changes, we require that you agree to a [Contributor Agreement](ContributorAgreement.md). When you create a PR, [CLA assistant](https://cla-assistant.io/) will prompt you to sign it.
+<div class="Box-sc-g0xbh4-0 bJMeLZ js-snippet-clipboard-copy-unpositioned" data-hpc="true"><article class="markdown-body entry-content container-lg" itemprop="text"><p dir="auto"><a href="https://cla-assistant.io/jrouwe/JoltPhysics" rel="nofollow"><img src="https://camo.githubusercontent.com/fea1c74be98d5319ed5b1f2ddb9f7052bd9bff9486d5959aa2c64ad4eefb918a/68747470733a2f2f636c612d617373697374616e742e696f2f726561646d652f62616467652f6a726f7577652f4a6f6c7450687973696373" alt="CLA助理" data-canonical-src="https://cla-assistant.io/readme/badge/jrouwe/JoltPhysics" style="max-width: 100%;"></a>
+<a href="https://github.com/jrouwe/JoltPhysics/actions/"><img src="https://github.com/jrouwe/JoltPhysics/actions/workflows/build.yml/badge.svg" alt="构建状态" style="max-width: 100%;"></a>
+<a href="https://sonarcloud.io/dashboard?id=jrouwe_JoltPhysics" rel="nofollow"><img src="https://camo.githubusercontent.com/8a136d4375a3e8e9be87fe40242240f1b4a7be25274cf9539b62e04f11b3415a/68747470733a2f2f736f6e6172636c6f75642e696f2f6170692f70726f6a6563745f6261646765732f6d6561737572653f70726f6a6563743d6a726f7577655f4a6f6c7450687973696373266d65747269633d616c6572745f737461747573" alt="质量门状态" data-canonical-src="https://sonarcloud.io/api/project_badges/measure?project=jrouwe_JoltPhysics&amp;metric=alert_status" style="max-width: 100%;"></a>
+<a href="https://sonarcloud.io/dashboard?id=jrouwe_JoltPhysics" rel="nofollow"><img src="https://camo.githubusercontent.com/7ee8fd07e2c88e34de88b70a29d8e69e0289399b2d46b6a82033d6596885db8d/68747470733a2f2f736f6e6172636c6f75642e696f2f6170692f70726f6a6563745f6261646765732f6d6561737572653f70726f6a6563743d6a726f7577655f4a6f6c7450687973696373266d65747269633d62756773" alt="虫子" data-canonical-src="https://sonarcloud.io/api/project_badges/measure?project=jrouwe_JoltPhysics&amp;metric=bugs" style="max-width: 100%;"></a>
+<a href="https://sonarcloud.io/dashboard?id=jrouwe_JoltPhysics" rel="nofollow"><img src="https://camo.githubusercontent.com/f93783c44625ed3433573552e206ba71e2075017c652154d1955494500f42d87/68747470733a2f2f736f6e6172636c6f75642e696f2f6170692f70726f6a6563745f6261646765732f6d6561737572653f70726f6a6563743d6a726f7577655f4a6f6c7450687973696373266d65747269633d636f64655f736d656c6c73" alt="代码异味" data-canonical-src="https://sonarcloud.io/api/project_badges/measure?project=jrouwe_JoltPhysics&amp;metric=code_smells" style="max-width: 100%;"></a></p>
+<div class="markdown-heading" dir="auto"><h1 tabindex="-1" class="heading-element" dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">震动物理</font></font></h1><a id="user-content-jolt-physics" class="anchor" aria-label="永久链接：震动物理学" href="#jolt-physics"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z"></path></svg></a></div>
+<p dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">Horizo&ZeroWidthSpace;&ZeroWidthSpace;n Forbidden West 使用的多核友好刚体物理和碰撞检测库，适用于游戏和 VR 应用程序。</font></font></p>
+<p dir="auto"><a href="https://www.playstation.com/en-us/games/horizon-forbidden-west/" rel="nofollow"><img src="https://camo.githubusercontent.com/a31e1f794de3e83c706597ad456f1d8d90c0da269d7f32617bb7ac137ed97f81/68747470733a2f2f6a726f7577652e6e6c2f6a6f6c742f486f72697a6f6e5f466f7262696464656e5f576573742e706e67" alt="地平线禁西封面艺术" data-canonical-src="https://jrouwe.nl/jolt/Horizon_Forbidden_West.png" style="max-width: 100%;"></a></p>
+<table>
+<thead>
+<tr>
+<th align="left"><a href="https://www.youtube.com/watch?v=pwyCW0yNKMA" rel="nofollow"><img src="https://camo.githubusercontent.com/baa951bb90f3443db03c05d57b665c59e649f9f53dedfea1c85e48c2ff65ea04/68747470733a2f2f696d672e796f75747562652e636f6d2f76692f707779435730794e4b4d412f687164656661756c742e6a7067" alt="布娃娃堆" data-canonical-src="https://img.youtube.com/vi/pwyCW0yNKMA/hqdefault.jpg" style="max-width: 100%;"></a></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><em><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">一段 YouTube 视频，展示了用 JoltPhysics 模拟的布娃娃堆。</font></font></em></td>
+</tr>
+</tbody>
+</table>
+<p dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">如需更多演示和</font></font><a href="https://www.youtube.com/watch?v=pwyCW0yNKMA&amp;list=PLYXVwtOr1CBxbA50jVg2dKUQvHW_5OOom" rel="nofollow"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">视频，</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">请访问</font></font><a href="/jrouwe/JoltPhysics/blob/master/Docs/Samples.md"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">示例</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">部分。</font></font></p>
+<div class="markdown-heading" dir="auto"><h2 tabindex="-1" class="heading-element" dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">设计注意事项</font></font></h2><a id="user-content-design-considerations" class="anchor" aria-label="永久链接：设计考虑因素" href="#design-considerations"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z"></path></svg></a></div>
+<p dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">那么为什么还要创建另一个物理引擎呢？首先，这是一个个人学习项目，其次我想解决现有物理引擎遇到的一些问题：</font></font></p>
+<ul dir="auto">
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">在游戏中，我们通常需要做比模拟物理世界更多的事情，并且我们需要跨多个线程来执行此操作。因此，我们非常重视在主要物理模拟更新之外同时访问物理模拟数据：
+</font></font><ul dir="auto">
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">世界的各个部分可以在后台加载/卸载。可以在后台线程上准备一批物理体，而不会锁定或影响物理模拟，然后一次性插入到世界中，对性能的影响最小。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">碰撞查询可以与其他操作（例如插入/删除主体）并行运行。查询代码保证看到主体处于一致状态，但是当主体在碰撞查询期间发生更改时，无法保证更改是否对查询可见。如果线程修改了主体的位置，然后进行碰撞查询，它将立即看到更新的状态（在处理世界的读取版本和写入版本时，这通常是一个问题）。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">通过在模拟步骤之前执行广泛的阶段查询，还可以与主要物理模拟并行运行碰撞查询。这样，长时间运行的进程（如导航网格生成）可以分布在多个帧上，同时仍然每帧运行物理模拟。</font></font></li>
+</ul>
+</li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">我们发现性能问题的主要来源之一是在加载/卸载内容时唤醒太多主体。因此，物体在创建时不会自动唤醒，而相邻的物体在移除时也不会被唤醒。如果需要，可以手动触发。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">模拟确定性地运行，因此您只需复制模拟的输入即可将模拟复制到远程客户端。请阅读</font></font><a href="https://jrouwe.github.io/JoltPhysics/#deterministic-simulation" rel="nofollow"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">确定性模拟</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">部分以了解其局限性。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">该物理引擎的模拟尝试模拟现实世界中刚体的行为，但在模拟中进行近似，因此主要用于游戏或 VR 模拟。</font></font></li>
+</ul>
+<div class="markdown-heading" dir="auto"><h2 tabindex="-1" class="heading-element" dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">特征</font></font></h2><a id="user-content-features" class="anchor" aria-label="永久链接：特点" href="#features"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z"></path></svg></a></div>
+<ul dir="auto">
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">使用连续碰撞检测模拟各种形状的刚体：
+</font></font><ul dir="auto">
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">领域。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">盒子。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">胶囊。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">锥形胶囊。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">圆柱。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">凸包。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">化合物。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">网格（三角形）。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">地形（高度场）。</font></font></li>
+</ul>
+</li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">物体之间的约束模拟：
+</font></font><ul dir="auto">
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">固定的。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">观点。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">距离（包括弹簧）。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">合页。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">滑块（也称为棱柱形）。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">锥体。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">齿条和小齿轮。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">齿轮。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">滑轮。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">平滑样条路径。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">摆动扭转（用于人形肩膀）。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">6 个自由度。</font></font></li>
+</ul>
+</li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">电机驱动的限制。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">碰撞检测：
+</font></font><ul dir="auto">
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">投射光线。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">测试形状与形状。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">铸造一个形状与另一个形状。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">Broadphase 仅测试快速确定哪些对象可能相交。</font></font></li>
+</ul>
+</li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">传感器（触发量）。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">动画布娃娃：
+</font></font><ul dir="auto">
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">硬键控（仅运动学刚体）。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">软键控（设置动态刚体的速度）。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">将约束电机驱动至动画姿势。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">将高细节（动画）骨架映射到低细节（布娃娃）骨架上，反之亦然。</font></font></li>
+</ul>
+</li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">游戏角色模拟（胶囊）
+</font></font><ul dir="auto">
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">僵硬的身体性格。在物理模拟过程中移动。角色和动态物体之间最便宜的选择和最准确的碰撞响应。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">虚拟人物。世界上没有刚体，但使用碰撞检查来模拟刚体。在物理更新之外进行更新以获得更多控制。与动态物体的交互不太准确。</font></font></li>
+</ul>
+</li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">汽车
+</font></font><ul dir="auto">
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">轮式车辆。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">履带式车辆。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">摩托车。</font></font></li>
+</ul>
+</li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">软体模拟（例如软球或一块布）。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">水浮力计算。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">允许大世界的可选双精度模式。</font></font></li>
+</ul>
+<div class="markdown-heading" dir="auto"><h2 tabindex="-1" class="heading-element" dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">支持的平台</font></font></h2><a id="user-content-supported-platforms" class="anchor" aria-label="永久链接：支持的平台" href="#supported-platforms"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z"></path></svg></a></div>
+<ul dir="auto">
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">Windows（VS2019、VS2022）x86/x64/ARM32/ARM64（桌面/UWP）</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">Linux（在 Ubuntu 22.04 上测试）x64/ARM64</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">自由BSD</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">Android（在 Android 14 上测试）x86/x64/ARM32/ARM64</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">Platform Blue（流行的游戏机）x64</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">macOS（在蒙特利测试）x64/ARM64</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">iOS（在 iOS 15 上测试）x64/ARM64</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">WebAssembly，请参阅</font></font><a href="https://github.com/jrouwe/JoltPhysics.js"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">这个</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">单独的项目。</font></font></li>
+</ul>
+<div class="markdown-heading" dir="auto"><h2 tabindex="-1" class="heading-element" dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">所需的 CPU 功能</font></font></h2><a id="user-content-required-cpu-features" class="anchor" aria-label="永久链接：所需的 CPU 功能" href="#required-cpu-features"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z"></path></svg></a></div>
+<ul dir="auto">
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">在 x86 上，最低要求是 SSE2，但可以使用 SSE4.1、SSE4.2、AVX、AVX2 或 AVX512 来编译该库。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">在 ARM64 上，该库默认使用 NEON 和 FP16 进行编译，在 ARM32 上，无需任何特殊的 CPU 指令即可对其进行编译。</font></font></li>
+</ul>
+<div class="markdown-heading" dir="auto"><h2 tabindex="-1" class="heading-element" dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">文档</font></font></h2><a id="user-content-documentation" class="anchor" aria-label="永久链接：文档" href="#documentation"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z"></path></svg></a></div>
+<p dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">要了解有关 Jolt 的更多信息，请访问</font></font><a href="https://jrouwe.github.io/JoltPhysics/" rel="nofollow"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">架构和 API 文档</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">。</font></font></p>
+<p dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">首先，请查看</font></font><a href="/jrouwe/JoltPhysics/blob/master/HelloWorld/HelloWorld.cpp"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">HelloWorld</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">示例。还提供了</font></font><a href="https://github.com/jrouwe/JoltPhysicsHelloWorld"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">使用 CMake FetchContent 的 HelloWorld 示例，</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">以</font><font style="vertical-align: inherit;">展示如何将 Jolt 物理集成到 CMake 项目中。</font></font></p>
+<p dir="auto"><font style="vertical-align: inherit;"></font><a href="https://gdcvault.com/play/1027560/Architecting-Jolt-Physics-for-Horizon" rel="nofollow"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">Jolt 使用的一些算法在我的 GDC 2022 演讲《为“Horizo&ZeroWidthSpace;&ZeroWidthSpace;n Forbidden West”构建 Jolt 物理》（幻灯片</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">、</font></font><a href="https://jrouwe.nl/architectingjolt/ArchitectingJoltPhysics_Rouwe_Jorrit_Notes.pdf" rel="nofollow"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">带有演讲者注释的幻灯片</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">、</font></font><a href="https://gdcvault.com/play/1027891/Architecting-Jolt-Physics-for-Horizon" rel="nofollow"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">视频</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">）中详细描述</font><font style="vertical-align: inherit;">。</font></font></p>
+<div class="markdown-heading" dir="auto"><h2 tabindex="-1" class="heading-element" dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">编译</font></font></h2><a id="user-content-compiling" class="anchor" aria-label="永久链接：编译" href="#compiling"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z"></path></svg></a></div>
+<ul dir="auto">
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">该库已经过测试，可以使用 Cl (Visual Studio 2019-2022)、Clang 10+ 和 GCC 9+ 进行编译。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">它使用C++17，仅依赖于标准模板库。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">它不使用编译器生成的 RTTI 或异常。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">如果您想在 Platform Blue 上运行，由于 NDA 要求，您需要提供自己的构建环境和 PlatformBlue.h 文件（有关更多信息，请参阅 Core.h）。</font></font></li>
+</ul>
+<p dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">有关构建说明，请转到</font></font><a href="/jrouwe/JoltPhysics/blob/master/Build/README.md"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">构建</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">部分。从旧版本的库升级时，请转到</font></font><a href="/jrouwe/JoltPhysics/blob/master/Docs/ReleaseNotes.md"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">发行说明</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">或</font></font><a href="/jrouwe/JoltPhysics/blob/master/Docs/APIChanges.md"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">API 更改</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">部分。</font></font></p>
+<div class="markdown-heading" dir="auto"><h2 tabindex="-1" class="heading-element" dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">表现</font></font></h2><a id="user-content-performance" class="anchor" aria-label="永久链接：性能" href="#performance"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z"></path></svg></a></div>
+<p dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">如果您对 Jolt 如何通过多个 CPU 进行扩展以及与其他物理引擎进行比较感兴趣，请查看</font></font><a href="https://jrouwe.nl/jolt/JoltPhysicsMulticoreScaling.pdf" rel="nofollow"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">此文档</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">。</font></font></p>
+<div class="markdown-heading" dir="auto"><h2 tabindex="-1" class="heading-element" dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">文件夹结构</font></font></h2><a id="user-content-folder-structure" class="anchor" aria-label="永久链接：文件夹结构" href="#folder-structure"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z"></path></svg></a></div>
+<ul dir="auto">
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">Assets - 此文件夹包含 TestFramework、Samples 和 JoltViewer 使用的资源。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">构建 - 包含构建库所需的一切，请参阅</font></font><a href="/jrouwe/JoltPhysics/blob/master/Build/README.md"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">构建</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">部分。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">文档 - 包含库的文档。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">HelloWorld - 一个简单的应用程序，演示如何使用 Jolt 物理库。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">Jolt - 库的所有源代码都在此文件夹中。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">JoltViewer - 可以使用 DebugRendererRecorder 类（.jor 文件）记录物理引擎的输出，此文件夹包含可以可视化记录的应用程序的源代码。这对于可视化来自不同平台的 PerformanceTest 的输出非常有用。目前仅适用于 Windows。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">PerformanceTest - 包含一个运行</font></font><a href="/jrouwe/JoltPhysics/blob/master/Docs/PerformanceTest.md"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">性能测试</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">并收集计时信息的简单应用程序。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">示例 - 这包含示例应用程序，请参阅</font></font><a href="/jrouwe/JoltPhysics/blob/master/Docs/Samples.md"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">示例</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">部分。目前仅适用于 Windows。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">TestFramework - 用于可视化物理引擎结果的渲染框架。由 Samples 和 JoltViewer 使用。目前仅适用于 Windows。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">单元测试 - 一组用于验证物理引擎行为的单元测试。</font></font></li>
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">WebInincludes - 物理引擎的内部分析框架使用的许多 JavaScript 资源。</font></font></li>
+</ul>
+<div class="markdown-heading" dir="auto"><h2 tabindex="-1" class="heading-element" dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">其他语言的绑定</font></font></h2><a id="user-content-bindings-for-other-languages" class="anchor" aria-label="永久链接：其他语言的绑定" href="#bindings-for-other-languages"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z"></path></svg></a></div>
+<ul dir="auto">
+<li><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">C</font></font><a href="https://github.com/michal-z/zig-gamedev/tree/main/libs/zphysics/libs"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">这里</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">和</font></font><a href="https://github.com/amerkoleci/JoltPhysicsSharp/tree/main/src/joltc"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">这里</font></font></a></li>
+<li><a href="https://github.com/amerkoleci/JoltPhysicsSharp"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">C＃</font></font></a></li>
+<li><a href="https://github.com/aecsocket/jolt-java"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">爪哇</font></font></a></li>
+<li><a href="https://github.com/jrouwe/JoltPhysics.js"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">JavaScript</font></font></a></li>
+<li><a href="https://github.com/michal-z/zig-gamedev/tree/main/libs/zphysics"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">之字形</font></font></a></li>
+</ul>
+<div class="markdown-heading" dir="auto"><h2 tabindex="-1" class="heading-element" dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">与其他引擎的集成</font></font></h2><a id="user-content-integrations-in-other-engines" class="anchor" aria-label="永久链接：与其他引擎的集成" href="#integrations-in-other-engines"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z"></path></svg></a></div>
+<ul dir="auto">
+<li><a href="https://github.com/godot-jolt/godot-jolt"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">戈多</font></font></a></li>
+<li><a href="https://github.com/Joshua-Ashton/VPhysics-Jolt"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">源引擎</font></font></a></li>
+</ul>
+<p dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">请参阅</font></font><a href="/jrouwe/JoltPhysics/blob/master/Docs/ProjectsUsingJolt.md"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">此处使用 JoltPhysics 的项目列表</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">。</font></font></p>
+<div class="markdown-heading" dir="auto"><h2 tabindex="-1" class="heading-element" dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">执照</font></font></h2><a id="user-content-license" class="anchor" aria-label="永久链接：许可证" href="#license"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z"></path></svg></a></div>
+<p dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">该项目是根据</font></font><a href="/jrouwe/JoltPhysics/blob/master/LICENSE"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">MIT 许可证</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">分发的。</font></font></p>
+<div class="markdown-heading" dir="auto"><h2 tabindex="-1" class="heading-element" dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">贡献</font></font></h2><a id="user-content-contributions" class="anchor" aria-label="永久链接：贡献" href="#contributions"><svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z"></path></svg></a></div>
+<p dir="auto"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">欢迎所有贡献！如果您打算进行较大的更改，请先在 GitHub 讨论部分进行讨论。对于重要的更改，我们要求您同意</font></font><a href="/jrouwe/JoltPhysics/blob/master/ContributorAgreement.md"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">贡献者协议</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">。当您创建 PR 时，</font></font><a href="https://cla-assistant.io/" rel="nofollow"><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">CLA 助手</font></font></a><font style="vertical-align: inherit;"><font style="vertical-align: inherit;">会提示您签名。</font></font></p>
+</article></div>
